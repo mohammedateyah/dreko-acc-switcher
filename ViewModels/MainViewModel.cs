@@ -47,8 +47,14 @@ public sealed class PlatformItem : ObservableObject
 
 public sealed class AccountItem : ObservableObject
 {
+    private bool _isAccountIdRevealed;
+
     public required AccountView Account { get; init; }
+    public ICommand ToggleAccountIdVisibilityCommand { get; }
+    public bool IsEpicAccount =>
+        Account.PlatformId.Equals("epic", StringComparison.OrdinalIgnoreCase);
     public string DisplayName => UseWesternDigits(Account.DisplayName);
+    public double AccountIdBlurRadius => IsEpicAccount && !_isAccountIdRevealed ? 6 : 0;
     public System.Windows.FlowDirection DisplayNameFlowDirection =>
         ContainsArabicText(Account.DisplayName)
             ? Localization.FlowDirection
@@ -97,6 +103,21 @@ public sealed class AccountItem : ObservableObject
         Raise(nameof(SubtitleFlowDirection));
         Raise(nameof(DisplayNameFlowDirection));
     }
+
+    public AccountItem()
+    {
+        ToggleAccountIdVisibilityCommand = new RelayCommand(ToggleAccountIdVisibility);
+    }
+
+    private void ToggleAccountIdVisibility()
+    {
+        if (!IsEpicAccount)
+            return;
+
+        _isAccountIdRevealed = !_isAccountIdRevealed;
+        Raise(nameof(AccountIdBlurRadius));
+    }
+
     public string Initials
     {
         get

@@ -278,12 +278,31 @@
                                                        FontWeight="SemiBold" FontSize="15"
                                                        TextTrimming="CharacterEllipsis" MaxWidth="210"
                                                        TextAlignment="Center"/>
-                                            <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
-                                                       FontFamily="Segoe UI" Language="en-US"
-                                                       NumberSubstitution.Substitution="European"
-                                                       FlowDirection="{Binding SubtitleFlowDirection}"
-                                                       FontSize="11" TextTrimming="CharacterEllipsis"
-                                                       MaxWidth="210" TextAlignment="Center"/>
+                                            <Button Background="Transparent" BorderThickness="0" Padding="0"
+                                                    FocusVisualStyle="{x:Null}"
+                                                    Command="{Binding ToggleAccountIdVisibilityCommand}"
+                                                    IsHitTestVisible="{Binding IsEpicAccount}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Cursor" Value="Arrow"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsEpicAccount}" Value="True">
+                                                                <Setter Property="Cursor" Value="Hand"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
+                                                           FontFamily="Segoe UI" Language="en-US"
+                                                           NumberSubstitution.Substitution="European"
+                                                           FlowDirection="{Binding SubtitleFlowDirection}"
+                                                           FontSize="11" TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="210" TextAlignment="Center">
+                                                    <TextBlock.Effect>
+                                                        <BlurEffect Radius="{Binding AccountIdBlurRadius}"/>
+                                                    </TextBlock.Effect>
+                                                </TextBlock>
+                                            </Button>
                                         </StackPanel>
                                     </StackPanel>
                                     <TextBlock Margin="0,16,0,10" Foreground="{StaticResource MutedBrush}" FontSize="12"
