@@ -23,6 +23,8 @@ The app opens on its home page, which shows the installed version, the total num
 
 Steam is special: accounts already remembered in `loginusers.vdf` show up automatically. You still need Steam’s own “Remember me” enabled once per account. Epic account saves include its launcher sign-in settings and account identifier from the current Windows user profile. After updating from an older Dreko version, sign into each Epic account and save it again before switching. An expired Epic session may still require signing in again.
 
+Account identifiers are blurred on account cards until clicked. Launcher detection checks Windows install registrations and searches available fixed/removable drives in the background, so launchers installed outside the system drive can be found.
+
 ## Build
 
 Requires the .NET 8 SDK. The app runs on Windows.

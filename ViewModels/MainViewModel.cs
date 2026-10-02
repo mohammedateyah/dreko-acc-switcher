@@ -34,7 +34,16 @@ public sealed class PlatformItem : ObservableObject
     }}.png";
     public string InstalledText => Localization.Text(Installed ? "installed" : "notFound");
     public System.Windows.Media.Brush Accent { get; init; } = Brushes.White;
-    public bool Installed { get; init; }
+    private bool _installed;
+    public bool Installed
+    {
+        get => _installed;
+        set
+        {
+            if (Set(ref _installed, value))
+                Raise(nameof(InstalledText));
+        }
+    }
     public void RefreshLocalization() => Raise(nameof(InstalledText));
 
     private bool _selected;
@@ -51,17 +60,17 @@ public sealed class AccountItem : ObservableObject
 
     public required AccountView Account { get; init; }
     public ICommand ToggleAccountIdVisibilityCommand { get; }
-    public bool IsEpicAccount =>
-        Account.PlatformId.Equals("epic", StringComparison.OrdinalIgnoreCase);
+    public bool HasAccountIdentifier =>
+        Account.PlatformId.Equals("epic", StringComparison.OrdinalIgnoreCase)
+        || (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName);
     public string DisplayName => UseWesternDigits(Account.DisplayName);
-    public double AccountIdBlurRadius => IsEpicAccount && !_isAccountIdRevealed ? 6 : 0;
+    public double AccountIdBlurRadius => HasAccountIdentifier && !_isAccountIdRevealed ? 6 : 0;
     public System.Windows.FlowDirection DisplayNameFlowDirection =>
         ContainsArabicText(Account.DisplayName)
             ? Localization.FlowDirection
             : System.Windows.FlowDirection.LeftToRight;
     public System.Windows.FlowDirection SubtitleFlowDirection =>
-        Account.PlatformId.Equals("epic", StringComparison.OrdinalIgnoreCase)
-            || (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName)
+        HasAccountIdentifier
             || Account.LastUsedAt is not null
             ? System.Windows.FlowDirection.LeftToRight
             : Localization.FlowDirection;
@@ -111,7 +120,7 @@ public sealed class AccountItem : ObservableObject
 
     private void ToggleAccountIdVisibility()
     {
-        if (!IsEpicAccount)
+        if (!HasAccountIdentifier)
             return;
 
         _isAccountIdRevealed = !_isAccountIdRevealed;
@@ -395,7 +404,33 @@ public sealed class MainViewModel : ObservableObject
             });
         }
 
+        _ = DiscoverLaunchersAcrossDrivesAsync();
         RefreshTotalAccountCount();
+    }
+
+    private async Task DiscoverLaunchersAcrossDrivesAsync()
+    {
+        try
+        {
+            await LauncherLocator.DiscoverAcrossDrivesAsync();
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.Dispatcher.InvokeAsync(() => Fail(ex));
+            return;
+        }
+
+        await Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            foreach (var platform in Platforms)
+                platform.Installed = LauncherLocator.IsInstalled(platform.Definition);
+            if (SelectedPlatform is not null)
+            {
+                Status = SelectedPlatform.Installed
+                    ? Localization.Format("launcherReady", SelectedPlatform.Name)
+                    : Localization.Format("launcherMissing", SelectedPlatform.Name);
+            }
+        });
     }
 
     private void ShowHome()

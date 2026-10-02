@@ -90,8 +90,19 @@ public static class ProcessHelper
 
 public static class LauncherLocator
 {
+    private static readonly object DiscoveryGate = new();
+    private static readonly Dictionary<string, string> DiscoveredExecutables =
+        new(StringComparer.OrdinalIgnoreCase);
+    private static Task? _discoveryTask;
+
     public static string? FindExe(Models.PlatformDefinition platform)
     {
+        var executableNames = platform.ExeCandidates
+            .Select(candidate => Path.GetFileName(PathExpander.Expand(candidate)))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         foreach (var candidate in platform.ExeCandidates)
         {
             var path = PathExpander.Expand(candidate);
@@ -99,10 +110,251 @@ public static class LauncherLocator
                 return path;
         }
 
+        var registeredExe = FindRegisteredExe(platform, executableNames);
+        if (registeredExe is not null)
+            return registeredExe;
+
+        lock (DiscoveryGate)
+        {
+            foreach (var name in executableNames)
+            {
+                if (DiscoveredExecutables.TryGetValue(name, out var path) && File.Exists(path))
+                    return path;
+            }
+        }
+
         return null;
     }
 
+    public static Task DiscoverAcrossDrivesAsync()
+    {
+        lock (DiscoveryGate)
+            return _discoveryTask ??= Task.Run(ScanAcrossDrives);
+    }
+
+    public static string? GetDiscoveredExe(string executableName)
+    {
+        lock (DiscoveryGate)
+            return DiscoveredExecutables.TryGetValue(executableName, out var path) && File.Exists(path)
+                ? path
+                : null;
+    }
+
     public static bool IsInstalled(Models.PlatformDefinition platform) => FindExe(platform) is not null;
+
+    private static string? FindRegisteredExe(
+        Models.PlatformDefinition platform,
+        IReadOnlyCollection<string> executableNames)
+    {
+        foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+        {
+            foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            {
+                try
+                {
+                    using var root = RegistryKey.OpenBaseKey(hive, view);
+                    using var uninstall = root.OpenSubKey(
+                        @"Software\Microsoft\Windows\CurrentVersion\Uninstall");
+                    if (uninstall is null)
+                        continue;
+
+                    foreach (var subKeyName in uninstall.GetSubKeyNames())
+                    {
+                        using var app = uninstall.OpenSubKey(subKeyName);
+                        var displayName = app?.GetValue("DisplayName") as string;
+                        if (!MatchesPlatformName(platform.Id, displayName))
+                            continue;
+
+                        var installLocation = app?.GetValue("InstallLocation") as string;
+                        var displayIcon = app?.GetValue("DisplayIcon") as string;
+                        var exe = FindExeInRegisteredLocation(installLocation, displayIcon, executableNames);
+                        if (exe is not null)
+                            return exe;
+                    }
+                }
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or
+                                           System.Security.SecurityException)
+                {
+                    Log.Write($"Could not inspect {hive} uninstall entries for {platform.Id}: {ex.Message}");
+                }
+            }
+        }
+
+        foreach (var name in executableNames)
+        {
+            foreach (var hive in new[] { RegistryHive.CurrentUser, RegistryHive.LocalMachine })
+            {
+                foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+                {
+                    try
+                    {
+                        using var root = RegistryKey.OpenBaseKey(hive, view);
+                        using var appPath = root.OpenSubKey(
+                            $@"Software\Microsoft\Windows\CurrentVersion\App Paths\{name}");
+                        var registeredPath = appPath?.GetValue(null) as string;
+                        if (IsExpectedExecutable(registeredPath, executableNames))
+                            return PathExpander.Expand(registeredPath!);
+                    }
+                    catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or
+                                               System.Security.SecurityException)
+                    {
+                        Log.Write($"Could not inspect registered app paths for {name}: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? FindExeInRegisteredLocation(
+        string? installLocation,
+        string? displayIcon,
+        IReadOnlyCollection<string> executableNames)
+    {
+        var iconPath = ExtractExecutablePath(displayIcon);
+        if (IsExpectedExecutable(iconPath, executableNames))
+            return PathExpander.Expand(iconPath!);
+
+        if (string.IsNullOrWhiteSpace(installLocation))
+            return null;
+
+        var directory = PathExpander.Expand(installLocation.Trim().Trim('"'));
+        if (!Directory.Exists(directory))
+            return null;
+
+        foreach (var name in executableNames)
+        {
+            var executable = Path.Combine(directory, name);
+            if (File.Exists(executable))
+                return executable;
+        }
+
+        return null;
+    }
+
+    private static string? ExtractExecutablePath(string? displayIcon)
+    {
+        if (string.IsNullOrWhiteSpace(displayIcon))
+            return null;
+
+        var value = displayIcon.Trim();
+        if (value.StartsWith('"'))
+        {
+            var closingQuote = value.IndexOf('"', 1);
+            if (closingQuote > 1)
+                value = value[1..closingQuote];
+        }
+        else
+        {
+            var iconIndex = value.LastIndexOf(',');
+            if (iconIndex > 0)
+                value = value[..iconIndex].Trim();
+        }
+
+        return PathExpander.Expand(value);
+    }
+
+    private static bool IsExpectedExecutable(string? path, IReadOnlyCollection<string> names) =>
+        !string.IsNullOrWhiteSpace(path)
+        && names.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+        && File.Exists(path);
+
+    private static bool MatchesPlatformName(string platformId, string? displayName)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            return false;
+
+        return platformId switch
+        {
+            "steam" => displayName.Contains("Steam", StringComparison.OrdinalIgnoreCase),
+            "epic" => displayName.Contains("Epic Games Launcher", StringComparison.OrdinalIgnoreCase),
+            "battlenet" => displayName.Contains("Battle.net", StringComparison.OrdinalIgnoreCase),
+            "riot" => displayName.Contains("Riot Client", StringComparison.OrdinalIgnoreCase),
+            "ea" => displayName.Contains("EA app", StringComparison.OrdinalIgnoreCase)
+                    || displayName.Contains("Origin", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private static void ScanAcrossDrives()
+    {
+        var executableNames = PlatformCatalog.All
+            .SelectMany(platform => platform.ExeCandidates)
+            .Select(candidate => Path.GetFileName(PathExpander.Expand(candidate)))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var pending = new Stack<(string Path, int Depth)>();
+        var scannedDirectories = 0;
+        var skippedDirectories = 0;
+
+        foreach (var drive in DriveInfo.GetDrives())
+        {
+            try
+            {
+                if (drive.IsReady && drive.DriveType is DriveType.Fixed or DriveType.Removable)
+                    pending.Push((drive.RootDirectory.FullName, 0));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                skippedDirectories++;
+                Log.Write($"Could not access drive {drive.Name} during launcher discovery: {ex.Message}");
+            }
+        }
+
+        while (pending.Count > 0)
+        {
+            var (directory, depth) = pending.Pop();
+            scannedDirectories++;
+
+            foreach (var name in executableNames)
+            {
+                var candidate = Path.Combine(directory, name);
+                if (!File.Exists(candidate))
+                    continue;
+
+                lock (DiscoveryGate)
+                    DiscoveredExecutables.TryAdd(name, candidate);
+            }
+
+            if (depth >= 10)
+                continue;
+
+            try
+            {
+                foreach (var child in Directory.EnumerateDirectories(directory))
+                {
+                    var childName = Path.GetFileName(child);
+                    if (IsSystemDirectory(childName))
+                        continue;
+
+                    try
+                    {
+                        if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
+                            pending.Push((child, depth + 1));
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                                               System.Security.SecurityException)
+                    {
+                        skippedDirectories++;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or
+                                       System.Security.SecurityException)
+            {
+                skippedDirectories++;
+            }
+        }
+
+        Log.Write($"Launcher drive search inspected {scannedDirectories} folders and skipped {skippedDirectories} inaccessible folders; found {DiscoveredExecutables.Count} executables.");
+    }
+
+    private static bool IsSystemDirectory(string name) =>
+        name.Equals("$Recycle.Bin", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("Windows", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("Recovery", StringComparison.OrdinalIgnoreCase);
 }
 
 public static class FileSwapper

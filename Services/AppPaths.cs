@@ -89,7 +89,11 @@ public static class SteamLocator
         }
 
         var fallback = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam");
-        return Directory.Exists(fallback) ? fallback : null;
+        if (Directory.Exists(fallback))
+            return fallback;
+
+        var discoveredExe = LauncherLocator.GetDiscoveredExe("steam.exe");
+        return discoveredExe is null ? null : Path.GetDirectoryName(discoveredExe);
     }
 
     public static string? FindSteamExe()

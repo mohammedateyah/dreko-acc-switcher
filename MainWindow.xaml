@@ -281,12 +281,12 @@
                                             <Button Background="Transparent" BorderThickness="0" Padding="0"
                                                     FocusVisualStyle="{x:Null}"
                                                     Command="{Binding ToggleAccountIdVisibilityCommand}"
-                                                    IsHitTestVisible="{Binding IsEpicAccount}">
+                                                    IsHitTestVisible="{Binding HasAccountIdentifier}">
                                                 <Button.Style>
                                                     <Style TargetType="Button">
                                                         <Setter Property="Cursor" Value="Arrow"/>
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsEpicAccount}" Value="True">
+                                                            <DataTrigger Binding="{Binding HasAccountIdentifier}" Value="True">
                                                                 <Setter Property="Cursor" Value="Hand"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
