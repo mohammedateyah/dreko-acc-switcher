@@ -37,7 +37,40 @@ jobs:
           }
           Compress-Archive -Path publish\* -DestinationPath DrekoAccSwitcher-win-x64.zip
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup-6.6.1.exe'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/jrsoftware/issrc/releases/download/is-6_6_1/innosetup-6.6.1.exe' `
+            -OutFile $installer
+          $signature = Get-AuthenticodeSignature -FilePath $installer
+          if ($signature.Status -ne 'Valid') {
+            throw "Inno Setup installer signature is not valid: $($signature.Status)"
+          }
+          $installPath = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6'
+          $arguments = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /DIR="' + $installPath + '"'
+          $process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Inno Setup installation failed with exit code $($process.ExitCode)."
+          }
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            throw 'Inno Setup compiler was not found.'
+          }
+          & $iscc "/DAppVersion=$version" installer.iss
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$env:GITHUB_REF_NAME" DrekoAccSwitcher-win-x64.zip --title "$env:GITHUB_REF_NAME" --generate-notes
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          gh release create "$env:GITHUB_REF_NAME" DrekoAccSwitcher-win-x64.zip "output\DrekoAccSwitcher-Setup-$version.exe" --title "$env:GITHUB_REF_NAME" --generate-notes

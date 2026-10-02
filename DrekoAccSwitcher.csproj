@@ -7,6 +7,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\drekoaccswitcher.ico</ApplicationIcon>
     <AssemblyName>DrekoAccSwitcher</AssemblyName>
     <RootNamespace>DrekoAccSwitcher</RootNamespace>
     <Product>Dreko Acc Switcher</Product>

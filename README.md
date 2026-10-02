@@ -4,6 +4,10 @@ Windows account switcher for Steam, Epic Games, Battle.net, Riot Client, and EA 
 
 It does **not** store passwords. It copies the launcher’s own remembered-login files on this PC, then restores them when you switch.
 
+## Install
+
+Download `DrekoAccSwitcher-Setup-<version>.exe` from the [latest GitHub Release](https://github.com/mohammedateyah/dreko-acc-switcher/releases/latest) and run it. The per-user installer offers desktop shortcut and taskbar pin options, enabled by default, and lets you choose whether to launch Dreko when setup finishes. Application data and saved accounts in `%AppData%\Dreko Acc Switcher\` are preserved when upgrading or uninstalling.
+
 ## How to use
 
 The app opens on its home page, which shows the installed version, the total number of visible accounts across supported launchers, and a short usage guide. It checks the latest public GitHub release and reports whether an update is available.
@@ -34,7 +38,7 @@ Open **Settings** to choose English or Arabic, launch Dreko when Windows starts,
 
 ## Releases
 
-Push a version tag such as `v1.0.1` to build a self-contained Windows x64 package and publish it as a GitHub Release. The app compares that release tag with its installed version on startup. Keep the repository public so update checks work without requiring users to sign in.
+Push a version tag such as `v1.0.1` to build a self-contained Windows x64 package and a branded installer, then publish both as a GitHub Release. The app compares that release tag with its installed version on startup. Keep the repository public so update checks work without requiring users to sign in. The release workflow uses Inno Setup 6.6.1, which is licensed for non-commercial use; use a commercially licensed installer tool before distributing the installer commercially.
 
 ## Notes
 
