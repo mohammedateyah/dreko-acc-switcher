@@ -12,7 +12,7 @@
     <RootNamespace>DrekoAccSwitcher</RootNamespace>
     <Product>Dreko Acc Switcher</Product>
     <AssemblyTitle>Dreko Acc Switcher</AssemblyTitle>
-    <Version>1.0.13</Version>
+    <Version>1.1.0</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 

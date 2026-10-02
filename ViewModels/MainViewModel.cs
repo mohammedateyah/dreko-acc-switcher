@@ -54,7 +54,8 @@ public sealed class AccountItem : ObservableObject
             ? Localization.FlowDirection
             : System.Windows.FlowDirection.LeftToRight;
     public System.Windows.FlowDirection SubtitleFlowDirection =>
-        (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName)
+        Account.PlatformId.Equals("epic", StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName)
             || Account.LastUsedAt is not null
             ? System.Windows.FlowDirection.LeftToRight
             : Localization.FlowDirection;
@@ -62,6 +63,8 @@ public sealed class AccountItem : ObservableObject
     {
         get
         {
+            if (Account.PlatformId.Equals("epic", StringComparison.OrdinalIgnoreCase))
+                return UseWesternDigits(Account.Id);
             if (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName)
                 return UseWesternDigits(Account.UserName!);
             if (Account.LastUsedAt is DateTimeOffset used)
