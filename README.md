@@ -12,7 +12,7 @@ On first launch, Dreko shows a welcome message with the free-use and DrekoStudio
 
 ## How to use
 
-The app opens on its home page, which shows the installed version, the total number of visible accounts across supported launchers, and a short usage guide. It checks the latest public GitHub release and reports whether an update is available.
+The app opens on its home page, which shows the installed version, the total number of visible accounts across supported launchers, and a short usage guide. It checks the latest public GitHub release and reports whether an update is available. When a newer version is available, use **Download and install** to download and verify the installer before confirming the update. Dreko closes while the update installs and restarts when setup finishes; saved account data is preserved.
 
 1. Open the launcher and sign in with **Remember password / Stay signed in**.
 2. In Dreko, pick the launcher and click **Save current account**.

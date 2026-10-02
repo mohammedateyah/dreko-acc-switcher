@@ -1,7 +1,12 @@
+using System.Diagnostics;
+using System.ComponentModel;
 using System.Net.Http;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Reflection;
+using System.Security;
 using System.Text.Json;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -108,7 +113,8 @@ public sealed class MainViewModel : ObservableObject
     private bool _busy;
     private string _status;
     private UpdateCheckState _updateCheckState = UpdateCheckState.Checking;
-    private string? _latestReleaseTag;
+    private GitHubRelease? _latestRelease;
+    private double _updateProgress;
     private string _search = "";
     private bool _searchVisible;
     private PlatformItem? _selectedPlatform;
@@ -128,6 +134,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand SearchCommand { get; }
     public ICommand ClearSearchCommand { get; }
     public ICommand HomeCommand { get; }
+    public ICommand UpdateCommand { get; }
     private int? _totalAccountCount;
 
     private enum UpdateCheckState
@@ -136,6 +143,8 @@ public sealed class MainViewModel : ObservableObject
         Available,
         UpToDate,
         NoRelease,
+        Downloading,
+        DownloadFailed,
         Failed
     }
 
@@ -144,6 +153,9 @@ public sealed class MainViewModel : ObservableObject
         _engine = new SwitcherEngine(_repo);
         _status = Localization.Text("ready");
         Localization.Changed += OnLanguageChanged;
+        UpdateCommand = new RelayCommand(
+            async () => await DownloadAndInstallUpdateAsync(),
+            () => _updateCheckState is UpdateCheckState.Available or UpdateCheckState.DownloadFailed);
         HomeCommand = new RelayCommand(ShowHome);
         SelectPlatformCommand = new RelayCommand(p => { if (p is PlatformItem item) SelectPlatform(item); });
         SwitchCommand = new RelayCommand(async p => { if (p is AccountItem item) await RunAsync(() => _engine.SwitchToAsync(SelectedPlatform!.Definition, item.Account), Localization.Text("switched")); });
@@ -293,12 +305,30 @@ public sealed class MainViewModel : ObservableObject
     public string UpdateStatusText => _updateCheckState switch
     {
         UpdateCheckState.Checking => Localization.Text("updateChecking"),
-        UpdateCheckState.Available => Localization.Format("updateAvailable", _latestReleaseTag!),
+        UpdateCheckState.Available => Localization.Format("updateAvailable", _latestRelease!.TagName),
         UpdateCheckState.UpToDate => Localization.Text("upToDate"),
         UpdateCheckState.NoRelease => Localization.Text("noRelease"),
+        UpdateCheckState.Downloading => Localization.Format(
+            "updateDownloading",
+            _updateProgress.ToString("0", CultureInfo.InvariantCulture)),
+        UpdateCheckState.DownloadFailed => Localization.Text("updateDownloadFailed"),
         UpdateCheckState.Failed => Localization.Text("updateCheckFailed"),
         _ => throw new InvalidOperationException($"Unknown update check state: {_updateCheckState}.")
     };
+    public string UpdateButtonText => _updateCheckState switch
+    {
+        UpdateCheckState.Downloading => Localization.Format(
+            "updateDownloadingButton",
+            _updateProgress.ToString("0", CultureInfo.InvariantCulture)),
+        UpdateCheckState.DownloadFailed => Localization.Text("updateRetry"),
+        _ => Localization.Text("updateInstall")
+    };
+    public Visibility UpdateButtonVisibility =>
+        _updateCheckState is UpdateCheckState.Available or
+            UpdateCheckState.Downloading or
+            UpdateCheckState.DownloadFailed
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     public string HowToUseTitle => Localization.Text("howToUse");
     public string HowToUseStepOne => Localization.Text("howToUseStepOne");
     public string HowToUseStepTwo => Localization.Text("howToUseStepTwo");
@@ -422,10 +452,15 @@ public sealed class MainViewModel : ObservableObject
 
                 var currentVersion = Assembly.GetExecutingAssembly().GetName().Version
                                      ?? new Version(1, 0, 0);
-                _latestReleaseTag = latestRelease.TagName;
+                _latestRelease = latestRelease;
                 _updateCheckState = latestVersion > currentVersion
                     ? UpdateCheckState.Available
                     : UpdateCheckState.UpToDate;
+                if (_updateCheckState == UpdateCheckState.Available &&
+                    (latestRelease.InstallerUrl is null ||
+                     string.IsNullOrWhiteSpace(latestRelease.InstallerDigest)))
+                    throw new InvalidDataException(
+                        $"GitHub release '{latestRelease.TagName}' does not contain a verifiable installer.");
             }
         }
         catch (HttpRequestException ex)
@@ -455,6 +490,166 @@ public sealed class MainViewModel : ObservableObject
         }
 
         Raise(nameof(UpdateStatusText));
+        Raise(nameof(UpdateButtonText));
+        Raise(nameof(UpdateButtonVisibility));
+        CommandManager.InvalidateRequerySuggested();
+    }
+
+    private async Task DownloadAndInstallUpdateAsync()
+    {
+        var release = _latestRelease;
+        if (_updateCheckState is not (UpdateCheckState.Available or UpdateCheckState.DownloadFailed) ||
+            release?.InstallerUrl is not Uri downloadUrl ||
+            string.IsNullOrWhiteSpace(release.InstallerDigest))
+            return;
+
+        var version = release.TagName.TrimStart('v', 'V');
+        var installerName = $"DrekoAccSwitcher-Setup-{version}.exe";
+        var updateDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "DrekoAccSwitcher",
+            "Updates");
+        var installerPath = Path.Combine(
+            updateDirectory,
+            $"DrekoAccSwitcher-Setup-{version}-{Guid.NewGuid():N}.exe");
+        var installerStarted = false;
+
+        _updateProgress = 0;
+        _updateCheckState = UpdateCheckState.Downloading;
+        Raise(nameof(UpdateStatusText));
+        Raise(nameof(UpdateButtonText));
+        Raise(nameof(UpdateButtonVisibility));
+        CommandManager.InvalidateRequerySuggested();
+
+        try
+        {
+            CleanupStaleInstallers(updateDirectory);
+            var progress = new Progress<double>(value =>
+            {
+                _updateProgress = Math.Clamp(value * 100, 0, 100);
+                Raise(nameof(UpdateStatusText));
+                Raise(nameof(UpdateButtonText));
+            });
+            using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            await _releaseService.DownloadInstallerAsync(
+                downloadUrl,
+                release.TagName,
+                installerName,
+                release.InstallerDigest,
+                installerPath,
+                progress,
+                downloadTimeout.Token);
+
+            var confirmation = MessageBox.Show(
+                Localization.Format("updateInstallConfirm", release.TagName),
+                Localization.Text("updateInstallTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information,
+                MessageBoxResult.No,
+                Localization.IsArabic
+                    ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
+                    : MessageBoxOptions.None);
+            if (confirmation != MessageBoxResult.Yes)
+            {
+                _updateCheckState = UpdateCheckState.Available;
+                return;
+            }
+
+            using var installerProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = installerPath,
+                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CLOSEAPPLICATIONS /AUTORESTART=1",
+                WorkingDirectory = updateDirectory,
+                UseShellExecute = true
+            }) ?? throw new InvalidOperationException("Windows did not start the Dreko installer.");
+
+            installerStarted = true;
+            Log.Write($"Starting verified Dreko update to {release.TagName}.");
+            ((App)Application.Current).ExitForUpdate();
+        }
+        catch (HttpRequestException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (TaskCanceledException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (IOException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (SecurityException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (Win32Exception ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (InvalidDataException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            SetUpdateDownloadFailed(ex);
+        }
+        finally
+        {
+            if (!installerStarted && File.Exists(installerPath))
+            {
+                try
+                {
+                    File.Delete(installerPath);
+                }
+                catch (IOException ex)
+                {
+                    Log.Write($"Could not remove downloaded update installer '{installerPath}': {ex}");
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Log.Write($"Could not remove downloaded update installer '{installerPath}': {ex}");
+                }
+            }
+
+            Raise(nameof(UpdateStatusText));
+            Raise(nameof(UpdateButtonText));
+            Raise(nameof(UpdateButtonVisibility));
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
+
+    private void CleanupStaleInstallers(string directory)
+    {
+        if (!Directory.Exists(directory))
+            return;
+
+        foreach (var installer in Directory.EnumerateFiles(directory, "DrekoAccSwitcher-Setup-*.exe"))
+        {
+            try
+            {
+                File.Delete(installer);
+            }
+            catch (IOException ex)
+            {
+                Log.Write($"Could not remove stale update installer '{installer}': {ex}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Log.Write($"Could not remove stale update installer '{installer}': {ex}");
+            }
+        }
+    }
+
+    private void SetUpdateDownloadFailed(Exception exception)
+    {
+        Log.Write($"Dreko update download or installation failed: {exception}");
+        _updateCheckState = UpdateCheckState.DownloadFailed;
     }
 
     private async Task SaveCurrentAsync()
@@ -560,6 +755,8 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(AccountCountText));
         Raise(nameof(UpdateStatusTitle));
         Raise(nameof(UpdateStatusText));
+        Raise(nameof(UpdateButtonText));
+        Raise(nameof(UpdateButtonVisibility));
         Raise(nameof(HowToUseTitle));
         Raise(nameof(HowToUseStepOne));
         Raise(nameof(HowToUseStepTwo));

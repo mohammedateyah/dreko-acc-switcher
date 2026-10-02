@@ -89,4 +89,15 @@ begin
       if not WizardSilent then
         MsgBox(ExpandConstant('{cm:TaskbarPinFailed}'), mbInformation, MB_OK);
   end;
+
+  if (CurStep = ssDone) and WizardSilent and
+    (ExpandConstant('{param:AUTORESTART|0}') = '1') then
+    if not Exec(
+        ExpandConstant('{app}\DrekoAccSwitcher.exe'),
+        '',
+        ExpandConstant('{app}'),
+        SW_SHOWNORMAL,
+        ewNoWait,
+        ResultCode) then
+      Log('Could not restart Dreko Acc Switcher after installing the update.');
 end;

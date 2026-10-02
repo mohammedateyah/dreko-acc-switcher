@@ -382,6 +382,13 @@
                                 <TextBlock Text="{Binding UpdateStatusText}" Foreground="{StaticResource MutedBrush}"
                                            FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
                                            TextAlignment="Center"/>
+                                <Button Content="{Binding UpdateButtonText}"
+                                        Command="{Binding UpdateCommand}"
+                                        Visibility="{Binding UpdateButtonVisibility}"
+                                        Style="{StaticResource AccentButton}"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,12,0,0"
+                                        Padding="16,7"/>
                             </StackPanel>
                         </Border>
                     </UniformGrid>

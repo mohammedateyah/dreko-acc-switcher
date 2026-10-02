@@ -114,6 +114,15 @@ public partial class App : System.Windows.Application
         return true;
     }
 
+    public void ExitForUpdate()
+    {
+        _allowExit = true;
+        if (_trayIcon is not null)
+            _trayIcon.Visible = false;
+        MainWindow.Close();
+        Shutdown();
+    }
+
     public void ShowMainWindow()
     {
         _trayIcon!.Visible = false;
