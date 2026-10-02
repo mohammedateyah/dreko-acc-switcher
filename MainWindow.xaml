@@ -381,15 +381,37 @@
                                            FontSize="15" FontWeight="SemiBold" TextAlignment="Center"/>
                                 <TextBlock Text="{Binding UpdateStatusText}" Foreground="{StaticResource MutedBrush}"
                                            FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"
-                                           TextAlignment="Center" Language="en-US"/>
-                                <Button Content="{Binding UpdateButtonText}"
-                                        Command="{Binding UpdateCommand}"
+                                           TextAlignment="Center"/>
+                                <TextBlock Text="{Binding UpdateVersionText}"
+                                           Visibility="{Binding UpdateVersionVisibility}"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" TextAlignment="Center"
+                                           Language="en-US" FlowDirection="LeftToRight"/>
+                                <TextBlock Text="{Binding UpdateProgressText}"
+                                           Visibility="{Binding UpdateProgressVisibility}"
+                                           Foreground="{StaticResource AccentBrush}"
+                                           FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" TextAlignment="Center"
+                                           Language="en-US" FlowDirection="LeftToRight"/>
+                                <Button Command="{Binding UpdateCommand}"
                                         Visibility="{Binding UpdateButtonVisibility}"
                                         Style="{StaticResource AccentButton}"
                                         HorizontalAlignment="Center"
                                         Margin="0,12,0,0"
-                                        Padding="16,7"
-                                        Language="en-US"/>
+                                        Padding="16,7">
+                                    <StackPanel Orientation="Horizontal" FlowDirection="{Binding FlowDirection}">
+                                        <TextBlock Text="{Binding UpdateButtonText}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding UpdateProgressText}"
+                                                   Visibility="{Binding UpdateProgressVisibility}"
+                                                   FlowDirection="LeftToRight"
+                                                   Language="en-US"
+                                                   FontFamily="Segoe UI"
+                                                   Margin="6,0,0,0"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </Border>
                     </UniformGrid>

@@ -302,24 +302,27 @@ public sealed class MainViewModel : ObservableObject
                                       ?? Localization.Text("unavailable");
     public string AppVersionText => $"v{Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.0"}";
     public string UpdateStatusTitle => Localization.Text("updateStatus");
+    public string UpdateVersionText => _latestRelease?.TagName ?? "";
+    public Visibility UpdateVersionVisibility =>
+        _updateCheckState == UpdateCheckState.Available ? Visibility.Visible : Visibility.Collapsed;
+    public string UpdateProgressText =>
+        _updateProgress.ToString("0", CultureInfo.InvariantCulture) + "%";
+    public Visibility UpdateProgressVisibility =>
+        _updateCheckState == UpdateCheckState.Downloading ? Visibility.Visible : Visibility.Collapsed;
     public string UpdateStatusText => _updateCheckState switch
     {
         UpdateCheckState.Checking => Localization.Text("updateChecking"),
-        UpdateCheckState.Available => Localization.Format("updateAvailable", _latestRelease!.TagName),
+        UpdateCheckState.Available => Localization.Text("updateAvailable"),
         UpdateCheckState.UpToDate => Localization.Text("upToDate"),
         UpdateCheckState.NoRelease => Localization.Text("noRelease"),
-        UpdateCheckState.Downloading => Localization.Format(
-            "updateDownloading",
-            _updateProgress.ToString("0", CultureInfo.InvariantCulture)),
+        UpdateCheckState.Downloading => Localization.Text("updateDownloading"),
         UpdateCheckState.DownloadFailed => Localization.Text("updateDownloadFailed"),
         UpdateCheckState.Failed => Localization.Text("updateCheckFailed"),
         _ => throw new InvalidOperationException($"Unknown update check state: {_updateCheckState}.")
     };
     public string UpdateButtonText => _updateCheckState switch
     {
-        UpdateCheckState.Downloading => Localization.Format(
-            "updateDownloadingButton",
-            _updateProgress.ToString("0", CultureInfo.InvariantCulture)),
+        UpdateCheckState.Downloading => Localization.Text("updateDownloadingButton"),
         UpdateCheckState.DownloadFailed => Localization.Text("updateRetry"),
         _ => Localization.Text("updateInstall")
     };
@@ -490,6 +493,10 @@ public sealed class MainViewModel : ObservableObject
         }
 
         Raise(nameof(UpdateStatusText));
+        Raise(nameof(UpdateVersionText));
+        Raise(nameof(UpdateVersionVisibility));
+        Raise(nameof(UpdateProgressText));
+        Raise(nameof(UpdateProgressVisibility));
         Raise(nameof(UpdateButtonText));
         Raise(nameof(UpdateButtonVisibility));
         CommandManager.InvalidateRequerySuggested();
@@ -517,6 +524,8 @@ public sealed class MainViewModel : ObservableObject
         _updateProgress = 0;
         _updateCheckState = UpdateCheckState.Downloading;
         Raise(nameof(UpdateStatusText));
+        Raise(nameof(UpdateProgressText));
+        Raise(nameof(UpdateProgressVisibility));
         Raise(nameof(UpdateButtonText));
         Raise(nameof(UpdateButtonVisibility));
         CommandManager.InvalidateRequerySuggested();
@@ -528,6 +537,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 _updateProgress = Math.Clamp(value * 100, 0, 100);
                 Raise(nameof(UpdateStatusText));
+                Raise(nameof(UpdateProgressText));
                 Raise(nameof(UpdateButtonText));
             });
             using var downloadTimeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
@@ -541,7 +551,7 @@ public sealed class MainViewModel : ObservableObject
                 downloadTimeout.Token);
 
             var confirmation = MessageBox.Show(
-                Localization.Format("updateInstallConfirm", release.TagName),
+                Localization.Text("updateInstallConfirm"),
                 Localization.Text("updateInstallTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information,
@@ -618,6 +628,10 @@ public sealed class MainViewModel : ObservableObject
             }
 
             Raise(nameof(UpdateStatusText));
+            Raise(nameof(UpdateVersionText));
+            Raise(nameof(UpdateVersionVisibility));
+            Raise(nameof(UpdateProgressText));
+            Raise(nameof(UpdateProgressVisibility));
             Raise(nameof(UpdateButtonText));
             Raise(nameof(UpdateButtonVisibility));
             CommandManager.InvalidateRequerySuggested();
@@ -755,6 +769,10 @@ public sealed class MainViewModel : ObservableObject
         Raise(nameof(AccountCountText));
         Raise(nameof(UpdateStatusTitle));
         Raise(nameof(UpdateStatusText));
+        Raise(nameof(UpdateVersionText));
+        Raise(nameof(UpdateVersionVisibility));
+        Raise(nameof(UpdateProgressText));
+        Raise(nameof(UpdateProgressVisibility));
         Raise(nameof(UpdateButtonText));
         Raise(nameof(UpdateButtonVisibility));
         Raise(nameof(HowToUseTitle));
