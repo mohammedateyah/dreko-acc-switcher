@@ -46,10 +46,20 @@ public sealed class SwitcherEngine
 
     public async Task<SavedAccount> SaveCurrentAsync(PlatformDefinition platform, string displayName)
     {
+        var isEpic = platform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase);
+        var epicSessionFile = PathExpander.Expand(
+            "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\WindowsEditor\\GameUserSettings.ini");
+        if (isEpic &&
+            (string.IsNullOrWhiteSpace(UniqueIdReader.Read(platform)) ||
+             !EpicSessionValidator.HasRememberMeToken(epicSessionFile)))
+            throw new InvalidOperationException(Localization.Text("epicAccountNotSignedIn"));
+
         await CloseAsync(platform);
         await Task.Delay(300);
 
         var id = UniqueIdReader.Read(platform);
+        if (isEpic && string.IsNullOrWhiteSpace(id))
+            throw new InvalidOperationException(Localization.Text("epicAccountNotSignedIn"));
         if (string.IsNullOrWhiteSpace(id))
             id = "acc-" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
@@ -67,7 +77,7 @@ public sealed class SwitcherEngine
             PlatformId = platform.Id,
             Id = id,
             DisplayName = displayName.Trim(),
-            UserName = id,
+            UserName = isEpic ? null : id,
             LastUsedAt = DateTimeOffset.Now
         });
 
@@ -80,6 +90,26 @@ public sealed class SwitcherEngine
         var exe = LauncherLocator.FindExe(platform)
                   ?? throw new InvalidOperationException($"{platform.DisplayName} is not installed, or the exe was not found.");
 
+        var cache = AppPaths.AccountFolder(platform.Id, account.Id);
+        if (platform.Id != "steam")
+        {
+            if (!Directory.Exists(cache))
+                throw new DirectoryNotFoundException("No saved files for that account. Save it once while you are logged in.");
+
+            if (platform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase))
+            {
+                var cachedSessionFile = FileSwapper.GetCachedFilePath(
+                    "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\WindowsEditor\\GameUserSettings.ini",
+                    cache);
+                if (cachedSessionFile is null ||
+                    !EpicSessionValidator.HasRememberMeToken(cachedSessionFile) ||
+                    !RegistrySwapper.HasSavedValue(
+                        cache,
+                        PlatformCatalog.EpicAccountIdRegistryValue))
+                    throw new InvalidOperationException(Localization.Text("epicAccountNeedsResave"));
+            }
+        }
+
         await CloseAsync(platform);
 
         if (platform.Id == "steam")
@@ -88,10 +118,6 @@ public sealed class SwitcherEngine
         }
         else
         {
-            var cache = AppPaths.AccountFolder(platform.Id, account.Id);
-            if (!Directory.Exists(cache))
-                throw new DirectoryNotFoundException("No saved files for that account. Save it once while you are logged in.");
-
             FileSwapper.ClearLive(platform.LoginPaths.Concat(platform.ExtraClearPaths));
             await FileSwapper.RestoreCacheToLiveAsync(platform.LoginPaths, cache);
             RegistrySwapper.Restore(cache);

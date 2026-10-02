@@ -21,7 +21,7 @@ The app opens on its home page, which shows the installed version, the total num
 
 **Add new** opens the launcher so you can sign into another account, then save it. For Steam, it clears only the auto-login selection and preserves Steam's remembered account list and authentication files. Epic does not expose a supported automatic sign-out operation, so use Epic's profile menu to sign out before signing into the new account; Dreko leaves the current Epic session untouched.
 
-Steam is special: accounts already remembered in `loginusers.vdf` show up automatically. You still need Steam’s own “Remember me” enabled once per account. Epic account saves also include the launcher’s versioned `webcache` folders; an expired Epic session may still require signing in again.
+Steam is special: accounts already remembered in `loginusers.vdf` show up automatically. You still need Steam’s own “Remember me” enabled once per account. Epic account saves include its Remember Me session file and account identifier from the current Windows user profile. Enable Epic's **Remember Me** option before saving. After updating from an older Dreko version, sign into each Epic account and save it again before switching. An expired Epic session may still require signing in again.
 
 ## Build
 

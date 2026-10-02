@@ -4,6 +4,9 @@ namespace DrekoAccSwitcher.Services;
 
 public static class PlatformCatalog
 {
+    public const string EpicAccountIdRegistryValue =
+        @"HKCU\Software\Epic Games\Unreal Engine\Identifiers:AccountId";
+
     public static IReadOnlyList<PlatformDefinition> All { get; } =
     [
         new PlatformDefinition
@@ -48,13 +51,15 @@ public static class PlatformCatalog
             ],
             LoginPaths =
             [
-                "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\Windows\\GameUserSettings.ini",
-                "{LocalAppData}\\EpicGamesLauncher\\Saved\\Secret",
-                "{LocalAppData}\\EpicGamesLauncher\\Saved\\LocalStorage",
+                "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config",
                 "{LocalAppData}\\EpicGamesLauncher\\Saved\\webcache*"
             ],
-            UniqueId = UniqueIdKind.FileHash,
-            UniqueIdSource = "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\Windows\\GameUserSettings.ini"
+            RegistryValues =
+            [
+                EpicAccountIdRegistryValue
+            ],
+            UniqueId = UniqueIdKind.Registry,
+            UniqueIdSource = EpicAccountIdRegistryValue
         },
         new PlatformDefinition
         {

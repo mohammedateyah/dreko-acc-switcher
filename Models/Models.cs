@@ -21,7 +21,8 @@ public enum UniqueIdKind
 {
     FileHash,
     Regex,
-    Steam
+    Steam,
+    Registry
 }
 
 public sealed class SavedAccount

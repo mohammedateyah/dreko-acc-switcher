@@ -126,6 +126,25 @@ public static class FileSwapper
             DeletePattern(PathExpander.Expand(pattern));
     }
 
+    public static bool HasCachedFile(string liveFilePath, string cacheRoot) =>
+        GetCachedFilePath(liveFilePath, cacheRoot) is not null;
+
+    public static string? GetCachedFilePath(string liveFilePath, string cacheRoot)
+    {
+        var expandedPath = PathExpander.Expand(liveFilePath);
+        var directCachePath = Path.Combine(cacheRoot, MakeRelativeName(expandedPath));
+        if (File.Exists(directCachePath))
+            return directCachePath;
+
+        var liveDirectory = Path.GetDirectoryName(expandedPath);
+        if (liveDirectory is null)
+            return null;
+
+        var cachedDirectory = Path.Combine(cacheRoot, MakeRelativeName(liveDirectory));
+        var nestedCachePath = Path.Combine(cachedDirectory, Path.GetFileName(expandedPath));
+        return File.Exists(nestedCachePath) ? nestedCachePath : null;
+    }
+
     private static async Task CopyPatternAsync(string livePath, string cacheRoot, bool toCache)
     {
         var recursive = livePath.EndsWith($"{Path.DirectorySeparatorChar}*", StringComparison.Ordinal)
@@ -296,8 +315,35 @@ public static class FileSwapper
     }
 }
 
+public static class EpicSessionValidator
+{
+    public static bool HasRememberMeToken(string sessionFilePath)
+    {
+        if (!File.Exists(sessionFilePath))
+            return false;
+
+        foreach (var line in File.ReadLines(sessionFilePath))
+        {
+            var dataStart = line.IndexOf("Data=", StringComparison.OrdinalIgnoreCase);
+            if (dataStart >= 0 && line.Length - dataStart - "Data=".Length >= 1000)
+                return true;
+        }
+
+        return false;
+    }
+}
+
 public static class RegistrySwapper
 {
+    public static string? ReadValue(string spec)
+    {
+        if (!TryParse(spec, out var hive, out var keyPath, out var valueName))
+            return null;
+
+        using var key = hive.OpenSubKey(keyPath);
+        return key?.GetValue(valueName)?.ToString();
+    }
+
     public static void Save(IEnumerable<string> specs, string cacheRoot)
     {
         Directory.CreateDirectory(cacheRoot);
@@ -312,6 +358,20 @@ public static class RegistrySwapper
         }
         File.WriteAllText(Path.Combine(cacheRoot, "registry.json"),
             System.Text.Json.JsonSerializer.Serialize(map, JsonUtil.Options));
+    }
+
+    public static bool HasSavedValue(string cacheRoot, string spec)
+    {
+        var file = Path.Combine(cacheRoot, "registry.json");
+        if (!File.Exists(file))
+            return false;
+
+        var map = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string?>>(
+            File.ReadAllText(file),
+            JsonUtil.Options);
+        return map is not null &&
+               map.TryGetValue(spec, out var value) &&
+               !string.IsNullOrWhiteSpace(value);
     }
 
     public static void Restore(string cacheRoot)
@@ -375,6 +435,9 @@ public static class UniqueIdReader
         var source = platform.UniqueIdSource;
         if (string.IsNullOrWhiteSpace(source))
             return null;
+
+        if (platform.UniqueId == UniqueIdKind.Registry)
+            return RegistrySwapper.ReadValue(source);
 
         var path = PathExpander.Expand(source);
         if (platform.UniqueId == UniqueIdKind.Regex && !string.IsNullOrWhiteSpace(platform.UniqueIdRegex) && File.Exists(path))
