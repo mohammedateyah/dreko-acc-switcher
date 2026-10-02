@@ -1,0 +1,10 @@
+{
+  "note": "Built-in catalog. Paths are expanded at runtime. Dreko only copies local launcher session files that already exist on this PC — it never asks for passwords.",
+  "platforms": [
+    "steam",
+    "epic",
+    "battlenet",
+    "riot",
+    "ea"
+  ]
+}

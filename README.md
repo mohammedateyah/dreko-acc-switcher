@@ -1,0 +1,43 @@
+# Dreko Acc Switcher
+
+Windows account switcher for Steam, Epic Games, Battle.net, Riot Client, and EA App.
+
+It does **not** store passwords. It copies the launcher’s own remembered-login files on this PC, then restores them when you switch.
+
+## How to use
+
+The app opens on its home page, which shows the installed version, the total number of visible accounts across supported launchers, and a short usage guide. It checks the latest public GitHub release and reports whether an update is available.
+
+1. Open the launcher and sign in with **Remember password / Stay signed in**.
+2. In Dreko, pick the launcher and click **Save current account**.
+3. Repeat for every account.
+4. Click **Switch** on a card. Dreko closes the launcher, restores that session, and starts it again.
+
+**Add new** opens the launcher so you can sign into another account, then save it. For Steam, it clears only the auto-login selection and preserves Steam's remembered account list and authentication files. Epic does not expose a supported automatic sign-out operation, so use Epic's profile menu to sign out before signing into the new account; Dreko leaves the current Epic session untouched.
+
+Steam is special: accounts already remembered in `loginusers.vdf` show up automatically. You still need Steam’s own “Remember me” enabled once per account. Epic account saves also include the launcher’s versioned `webcache` folders; an expired Epic session may still require signing in again.
+
+## Build
+
+Requires the .NET 8 SDK. The app runs on Windows.
+
+```bat
+dotnet build DrekoAccSwitcher.sln -c Release
+dotnet run --project DrekoAccSwitcher.csproj -c Release
+```
+
+The exe is written to `bin\Release\net8.0-windows\`.
+
+Saved data lives in `%AppData%\Dreko Acc Switcher\`.
+
+Open **Settings** to choose English or Arabic, launch Dreko when Windows starts, or keep it in the notification area when the window is closed.
+
+## Releases
+
+Push a version tag such as `v1.0.1` to build a self-contained Windows x64 package and publish it as a GitHub Release. The app compares that release tag with its installed version on startup. Keep the repository public so update checks work without requiring users to sign in.
+
+## Notes
+
+- Close games if a file copy fails (session files can be locked).
+- This only works with **your** accounts on **this** machine.
+- 2FA / email codes are still required the first time an account is remembered by the official launcher.

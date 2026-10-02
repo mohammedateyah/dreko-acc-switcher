@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>DrekoAccSwitcher</AssemblyName>
+    <RootNamespace>DrekoAccSwitcher</RootNamespace>
+    <Product>Dreko Acc Switcher</Product>
+    <AssemblyTitle>Dreko Acc Switcher</AssemblyTitle>
+    <Version>1.0.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+    <None Update="Platforms.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Resource Include="Assets\*.png" />
+    <Resource Include="Assets\ElMessiri-Regular.ttf" />
+  </ItemGroup>
+
+</Project>
