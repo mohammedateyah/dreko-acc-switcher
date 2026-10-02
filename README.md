@@ -8,6 +8,8 @@ It does **not** store passwords. It copies the launcher’s own remembered-login
 
 Download `DrekoAccSwitcher-Setup-<version>.exe` from the [latest GitHub Release](https://github.com/mohammedateyah/dreko-acc-switcher/releases/latest) and run it. The per-user installer offers desktop shortcut and taskbar pin options, enabled by default, and lets you choose whether to launch Dreko when setup finishes. Application data and saved accounts in `%AppData%\Dreko Acc Switcher\` are preserved when upgrading or uninstalling.
 
+On first launch, Dreko shows a welcome message with the free-use and DrekoStudio copyright notice and a link to the studio website. The message is shown once per user profile.
+
 ## How to use
 
 The app opens on its home page, which shows the installed version, the total number of visible accounts across supported launchers, and a short usage guide. It checks the latest public GitHub release and reports whether an update is available.

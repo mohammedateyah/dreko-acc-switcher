@@ -16,7 +16,11 @@ public static class SettingsStore
         AppPaths.EnsureLayout();
         if (!File.Exists(AppPaths.SettingsFile))
         {
-            Current = new AppSettings();
+            Current = new AppSettings
+            {
+                WelcomeMessageShown = File.Exists(AppPaths.CatalogFile) ||
+                                      File.Exists(AppPaths.LogFile)
+            };
             return;
         }
 
@@ -47,6 +51,17 @@ public static class SettingsStore
                 runKey?.DeleteValue(RunValueName, throwOnMissingValue: false);
         }
 
+        Persist(settings);
+    }
+
+    public static void MarkWelcomeMessageShown()
+    {
+        Current.WelcomeMessageShown = true;
+        Persist(Current);
+    }
+
+    private static void Persist(AppSettings settings)
+    {
         var temporaryFile = AppPaths.SettingsFile + ".tmp";
         File.WriteAllText(temporaryFile, JsonSerializer.Serialize(settings, JsonUtil.Options));
         File.Move(temporaryFile, AppPaths.SettingsFile, overwrite: true);

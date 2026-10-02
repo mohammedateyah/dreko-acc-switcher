@@ -69,6 +69,38 @@ public partial class App : System.Windows.Application
         MainWindow = new MainWindow();
         MainWindow.Show();
         _trayIcon!.Visible = false;
+
+        if (!SettingsStore.Current.WelcomeMessageShown)
+        {
+            var welcomeWindow = new Views.WelcomeWindow { Owner = MainWindow };
+            welcomeWindow.ShowDialog();
+            try
+            {
+                SettingsStore.MarkWelcomeMessageShown();
+            }
+            catch (IOException ex)
+            {
+                ReportWelcomeStateSaveFailure(ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                ReportWelcomeStateSaveFailure(ex);
+            }
+        }
+    }
+
+    private static void ReportWelcomeStateSaveFailure(Exception exception)
+    {
+        Log.Write($"Could not save first-run welcome state: {exception}");
+        MessageBox.Show(
+            Localization.Format("saveSettingsFailed", exception.Message),
+            Localization.Text("appTitle"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning,
+            MessageBoxResult.OK,
+            Localization.IsArabic
+                ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
+                : MessageBoxOptions.None);
     }
 
     public bool TryHideToTray(CancelEventArgs e)
