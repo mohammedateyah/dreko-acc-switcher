@@ -65,7 +65,10 @@ public sealed class AccountItem : ObservableObject
             if (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName)
                 return UseWesternDigits(Account.UserName!);
             if (Account.LastUsedAt is DateTimeOffset used)
-                return UseWesternDigits($"{Localization.Text("lastUsed")} {used.LocalDateTime.ToString("g")}");
+            {
+                var timestamp = used.LocalDateTime.ToString("g", CultureInfo.GetCultureInfo("en-US"));
+                return $"{Localization.Text("lastUsed")} \u2066{UseWesternDigits(timestamp)}\u2069";
+            }
             return Account.FromLauncher ? Localization.Text("rememberedByLauncher") : Localization.Text("savedLocally");
         }
     }

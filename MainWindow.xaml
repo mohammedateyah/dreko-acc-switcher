@@ -280,6 +280,7 @@
                                                        TextAlignment="Center"/>
                                             <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource MutedBrush}"
                                                        FontFamily="Segoe UI" Language="en-US"
+                                                       NumberSubstitution.Substitution="European"
                                                        FlowDirection="{Binding SubtitleFlowDirection}"
                                                        FontSize="11" TextTrimming="CharacterEllipsis"
                                                        MaxWidth="210" TextAlignment="Center"/>
