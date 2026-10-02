@@ -14,14 +14,14 @@ On first launch, Dreko shows a welcome message with the free-use and DrekoStudio
 
 The app opens on its home page, which shows the installed version, the total number of visible accounts across supported launchers, and a short usage guide. It checks the latest public GitHub release and reports whether an update is available. When a newer version is available, use **Download and install** to download and verify the installer before confirming the update. Dreko closes while the update installs and restarts when setup finishes; saved account data is preserved.
 
-1. Open the launcher and sign in with **Remember password / Stay signed in**.
+1. Open the launcher and sign in, keeping the session active.
 2. In Dreko, pick the launcher and click **Save current account**.
 3. Repeat for every account.
 4. Click **Switch** on a card. Dreko closes the launcher, restores that session, and starts it again.
 
-**Add new** opens the launcher so you can sign into another account, then save it. For Steam, it clears only the auto-login selection and preserves Steam's remembered account list and authentication files. Epic does not expose a supported automatic sign-out operation, so use Epic's profile menu to sign out before signing into the new account; Dreko leaves the current Epic session untouched.
+**Add new** opens the launcher's sign-in screen so you can sign into another account, then save it. For Steam, it clears only the auto-login selection and preserves Steam's remembered account list and authentication files. For Epic, Dreko saves the active session first, clears only Epic's sign-in session file and active account identifier, and opens the sign-in screen; saved Epic accounts remain available to switch back to.
 
-Steam is special: accounts already remembered in `loginusers.vdf` show up automatically. You still need Steam’s own “Remember me” enabled once per account. Epic account saves include its launcher sign-in settings and account identifier from the current Windows user profile; Epic manages its own sign-in session, so there is no separate Remember Me checkbox to enable. After updating from an older Dreko version, sign into each Epic account and save it again before switching. An expired Epic session may still require signing in again.
+Steam is special: accounts already remembered in `loginusers.vdf` show up automatically. You still need Steam’s own “Remember me” enabled once per account. Epic account saves include its launcher sign-in settings and account identifier from the current Windows user profile. After updating from an older Dreko version, sign into each Epic account and save it again before switching. An expired Epic session may still require signing in again.
 
 ## Build
 

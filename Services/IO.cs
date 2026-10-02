@@ -228,15 +228,20 @@ public static class FileSwapper
             return;
         }
 
-        if (toCache)
+        if (toCache && File.Exists(livePath))
         {
-            if (File.Exists(livePath))
-                await CopyFileWithRetryAsync(livePath, cachePath);
+            await CopyFileWithRetryAsync(livePath, cachePath);
         }
-        else if (File.Exists(cachePath))
+        else if (!toCache)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(livePath)!);
-            await CopyFileWithRetryAsync(cachePath, livePath);
+            var cachedFile = File.Exists(cachePath)
+                ? cachePath
+                : GetCachedFilePath(livePath, cacheRoot);
+            if (cachedFile is not null)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(livePath)!);
+                await CopyFileWithRetryAsync(cachedFile, livePath);
+            }
         }
     }
 
@@ -428,6 +433,18 @@ public static class RegistrySwapper
             return;
         using var key = hive.CreateSubKey(keyPath);
         key?.SetValue(valueName, value);
+    }
+
+    public static void Clear(IEnumerable<string> specs)
+    {
+        foreach (var spec in specs)
+        {
+            if (!TryParse(spec, out var hive, out var keyPath, out var valueName))
+                continue;
+
+            using var key = hive.OpenSubKey(keyPath, writable: true);
+            key?.DeleteValue(valueName, throwOnMissingValue: false);
+        }
     }
 
     private static bool TryParse(string spec, out RegistryKey hive, out string keyPath, out string valueName)

@@ -51,8 +51,7 @@ public static class PlatformCatalog
             ],
             LoginPaths =
             [
-                "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config",
-                "{LocalAppData}\\EpicGamesLauncher\\Saved\\webcache*"
+                "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\WindowsEditor\\GameUserSettings.ini"
             ],
             RegistryValues =
             [

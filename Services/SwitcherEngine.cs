@@ -49,40 +49,68 @@ public sealed class SwitcherEngine
         var isEpic = platform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase);
         var epicSessionFile = PathExpander.Expand(
             "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\WindowsEditor\\GameUserSettings.ini");
+        var id = isEpic ? UniqueIdReader.Read(platform) : null;
         if (isEpic &&
-            (string.IsNullOrWhiteSpace(UniqueIdReader.Read(platform)) ||
+            (string.IsNullOrWhiteSpace(id) ||
              !EpicSessionValidator.HasRememberMeToken(epicSessionFile)))
             throw new InvalidOperationException(Localization.Text("epicAccountNotSignedIn"));
 
         await CloseAsync(platform);
         await Task.Delay(300);
 
-        var id = UniqueIdReader.Read(platform);
+        id ??= UniqueIdReader.Read(platform);
         if (isEpic && string.IsNullOrWhiteSpace(id))
             throw new InvalidOperationException(Localization.Text("epicAccountNotSignedIn"));
         if (string.IsNullOrWhiteSpace(id))
             id = "acc-" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
+        return await SaveSnapshotAsync(platform, id, displayName);
+    }
+
+    private async Task<SavedAccount> SaveSnapshotAsync(
+        PlatformDefinition platform,
+        string id,
+        string displayName)
+    {
         var cache = AppPaths.AccountFolder(platform.Id, id);
-        if (Directory.Exists(cache))
-            Directory.Delete(cache, true);
-        Directory.CreateDirectory(cache);
-
-        await FileSwapper.CopyLiveToCacheAsync(platform.LoginPaths, cache);
-        if (platform.RegistryValues.Length > 0)
-            RegistrySwapper.Save(platform.RegistryValues, cache);
-
-        var saved = _repo.Upsert(new SavedAccount
+        var staging = cache + ".saving-" + Guid.NewGuid().ToString("N");
+        var previous = cache + ".previous-" + Guid.NewGuid().ToString("N");
+        try
         {
-            PlatformId = platform.Id,
-            Id = id,
-            DisplayName = displayName.Trim(),
-            UserName = isEpic ? null : id,
-            LastUsedAt = DateTimeOffset.Now
-        });
+            Directory.CreateDirectory(staging);
+            await FileSwapper.CopyLiveToCacheAsync(platform.LoginPaths, staging);
+            if (platform.RegistryValues.Length > 0)
+                RegistrySwapper.Save(platform.RegistryValues, staging);
 
-        Log.Write($"Saved {platform.Id}/{id} as '{displayName}'.");
-        return saved;
+            if (Directory.Exists(cache))
+                Directory.Move(cache, previous);
+            Directory.Move(staging, cache);
+
+            var saved = _repo.Upsert(new SavedAccount
+            {
+                PlatformId = platform.Id,
+                Id = id,
+                DisplayName = displayName.Trim(),
+                UserName = platform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase) ? null : id,
+                LastUsedAt = DateTimeOffset.Now
+            });
+
+            Log.Write($"Saved {platform.Id}/{id} as '{displayName}'.");
+            return saved;
+        }
+        catch
+        {
+            if (Directory.Exists(previous) && !Directory.Exists(cache))
+                Directory.Move(previous, cache);
+            throw;
+        }
+        finally
+        {
+            if (Directory.Exists(staging))
+                Directory.Delete(staging, true);
+            if (Directory.Exists(previous) && Directory.Exists(cache))
+                Directory.Delete(previous, true);
+        }
     }
 
     public async Task SwitchToAsync(PlatformDefinition platform, AccountView account)
@@ -135,8 +163,26 @@ public sealed class SwitcherEngine
 
         if (platform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase))
         {
+            var sessionFile = PathExpander.Expand(
+                "{LocalAppData}\\EpicGamesLauncher\\Saved\\Config\\WindowsEditor\\GameUserSettings.ini");
+            var activeAccountId = UniqueIdReader.Read(platform);
+            var hasActiveSession = !string.IsNullOrWhiteSpace(activeAccountId) &&
+                                   EpicSessionValidator.HasRememberMeToken(sessionFile);
+
+            await CloseAsync(platform);
+            await Task.Delay(300);
+
+            if (hasActiveSession)
+            {
+                var displayName = _repo.ForPlatform(platform.Id)
+                    .FirstOrDefault(account => account.Id == activeAccountId)?.DisplayName ?? activeAccountId!;
+                await SaveSnapshotAsync(platform, activeAccountId!, displayName);
+            }
+
+            FileSwapper.ClearLive(platform.LoginPaths);
+            RegistrySwapper.Clear(platform.RegistryValues);
+            Log.Write("Cleared Epic's active login session after preserving the current signed-in account.");
             ProcessHelper.Launch(exe);
-            Log.Write("Opened Epic without modifying its live session; the launcher requires an explicit profile-menu sign-out.");
             return;
         }
 

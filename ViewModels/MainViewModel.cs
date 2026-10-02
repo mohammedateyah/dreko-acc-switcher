@@ -684,19 +684,12 @@ public sealed class MainViewModel : ObservableObject
     private async Task AddNewAccountAsync()
     {
         if (SelectedPlatform is null) return;
-        var isEpic = SelectedPlatform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase);
         await RunAsync(async () =>
         {
             await _engine.AddNewAsync(SelectedPlatform.Definition);
-            if (isEpic)
-            {
-                MessageBox.Show(Localization.Text("epicSignOutRequired"), Localization.Text("appTitle"),
-                    MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK,
-                    Localization.IsArabic
-                        ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
-                        : MessageBoxOptions.None);
-            }
-        }, isEpic ? Localization.Text("epicAddReady") : Localization.Text("launcherOpened"));
+        }, SelectedPlatform.Id.Equals("epic", StringComparison.OrdinalIgnoreCase)
+            ? Localization.Text("epicAddReady")
+            : Localization.Text("launcherOpened"));
     }
 
     private async Task RunAsync(Func<Task> work, string ok)
