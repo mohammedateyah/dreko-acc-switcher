@@ -54,7 +54,8 @@ public sealed class AccountItem : ObservableObject
             ? Localization.FlowDirection
             : System.Windows.FlowDirection.LeftToRight;
     public System.Windows.FlowDirection SubtitleFlowDirection =>
-        !string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName
+        (!string.IsNullOrWhiteSpace(Account.UserName) && Account.UserName != Account.DisplayName)
+            || Account.LastUsedAt is not null
             ? System.Windows.FlowDirection.LeftToRight
             : Localization.FlowDirection;
     public string Subtitle
