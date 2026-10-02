@@ -140,9 +140,27 @@ public static class FileSwapper
         if (liveDirectory is null)
             return null;
 
-        var cachedDirectory = Path.Combine(cacheRoot, MakeRelativeName(liveDirectory));
-        var nestedCachePath = Path.Combine(cachedDirectory, Path.GetFileName(expandedPath));
-        return File.Exists(nestedCachePath) ? nestedCachePath : null;
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        while (IsWithinRoot(liveDirectory, localAppData) ||
+               IsWithinRoot(liveDirectory, roamingAppData))
+        {
+            var cachedDirectory = Path.Combine(cacheRoot, MakeRelativeName(liveDirectory));
+            var nestedCachePath = Path.Combine(
+                cachedDirectory,
+                Path.GetRelativePath(liveDirectory, expandedPath));
+            if (File.Exists(nestedCachePath))
+                return nestedCachePath;
+
+            if (PathEquals(liveDirectory, localAppData) || PathEquals(liveDirectory, roamingAppData))
+                break;
+
+            liveDirectory = Path.GetDirectoryName(liveDirectory);
+            if (liveDirectory is null)
+                break;
+        }
+
+        return null;
     }
 
     private static async Task CopyPatternAsync(string livePath, string cacheRoot, bool toCache)
@@ -271,6 +289,18 @@ public static class FileSwapper
         }
         return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(livePath)))[..16];
     }
+
+    private static bool IsWithinRoot(string path, string root) =>
+        PathEquals(path, root) ||
+        path.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) +
+                        Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool PathEquals(string left, string right) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(left),
+            Path.TrimEndingDirectorySeparator(right),
+            StringComparison.OrdinalIgnoreCase);
 
     private static string PatternDirectoryCache(string cacheRoot, string livePattern)
     {
